@@ -300,7 +300,9 @@ Re-enabling bridging later does **not** recover the dropped completions.
 disable flag (the disable flag should gate *acknowledgement*, not the settlement
 of already-acknowledged events), or (b) re-queue/park failed completions so they
 execute once bridging is re-enabled, or (c) have `delaymsg` re-schedule a message
-whose handler returned an error instead of deleting it.
+whose handler returned an error instead of deleting it. The regression test above
+can be used to validate any such fix (the `run(true)` case should then deliver the
+funds or keep the message queued rather than dropping it).
 
 ---
 
