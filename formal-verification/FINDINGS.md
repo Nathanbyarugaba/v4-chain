@@ -25,7 +25,7 @@ The models were written after reading those functions; the Go corroboration
 
 | ID | Title | Severity | Status | Evidence |
 |----|-------|----------|--------|----------|
-| F1 | Unresolvable negative-TNC subaccount permanently freezes an entire collateral pool | **High** | CONFIRMED (logic); REACHABILITY confirmed for one-sided/illiquid markets (see F1b) | `tla/out/wg_h5.txt`, `tla/out/ntr_stuck.txt`, Lean `rearm_always_blocked` + `freeze_is_bounded` |
+| F1 | Unresolvable negative-TNC subaccount permanently freezes an entire collateral pool | **High** | CONFIRMED (logic; mechanism corroborated at runtime); REACHABILITY confirmed for one-sided/illiquid markets (see F1b) | `tla/out/wg_h5.txt`, `tla/out/ntr_stuck.txt`, Lean `rearm_always_blocked`+`freeze_is_bounded`, Go test `x/subaccounts/keeper/negative_tnc_rearm_f1_test.go` |
 | F1b | Negative-TNC subaccount is structurally UNRESOLVABLE when the opposite side lacks overlapping-bankruptcy-price counterparties (no insurance/socialized-loss fallback) | **High** | CONFIRMED (logic) — this is the reachability driver for F1 | `tla/out/ntr_stuck.txt` |
 | F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic **+ runtime**); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic`, Go regression test `x/subaccounts/keeper/blockheight_regression_f2_test.go` |
 | F3 | Megavault freezes shareholders if equity reaches ≤0 with shares outstanding (all withdrawals pay 0 and revert; deposits blocked by `ErrNonPositiveEquity`, so no recovery via the normal path) | **Medium** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Coq, Go regression test `x/vault/keeper/megavault_freeze_f3_test.go` |
@@ -75,6 +75,17 @@ withdrawals/transfers are frozen **indefinitely**.
   when re-arming never stops, i.e. the subaccount is never resolved.
 - Baseline config (`CanResolve = TRUE`) passes all properties (`tla/out/wg_baseline.txt`),
   showing the design is correct **as long as deleveraging always makes progress**.
+- Go runtime corroboration of the mechanism (the single-shot-testable part):
+  `protocol/x/subaccounts/keeper/negative_tnc_rearm_f1_test.go`
+  (`TestF1_NegativeTncRearmKeepsWithdrawalsBlocked`, PASSING) against the real
+  subaccounts keeper: re-arming `SetNegativeTncSubaccountSeenAtBlock(currentBlock)`
+  every block keeps `CanUpdateSubaccounts(Withdrawal)` returning
+  `WithdrawalsAndTransfersBlocked` across 60+ consecutive blocks; once re-arming
+  stops, the breaker lifts at exactly `+50` blocks (`Success`). This shows the
+  permanence is due solely to the per-block re-arm — which, per F1b, never stops
+  when the negative-TNC subaccount is unresolvable. (The full permanent-freeze is
+  a liveness property, established by the TLA+/Lean artifacts above; the Go test
+  corroborates the underlying mechanism.)
 
 **Reachability / caveats.** The freeze requires a negative-TNC subaccount that is
 *structurally* unresolvable. Finding **F1b** below establishes that this is a

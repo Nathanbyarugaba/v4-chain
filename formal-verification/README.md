@@ -137,6 +137,11 @@ lean lean/VaultShares.lean
   (`go test ./x/subaccounts/keeper/ -run TestF2_BlockHeightRegression_PanicsOnWithdrawal`),
   showing a withdrawal panics when a negative-TNC "seen" height sits above the
   current block height (the post-regression state), while a deposit does not.
+  F1's mechanism is corroborated by
+  `protocol/x/subaccounts/keeper/negative_tnc_rearm_f1_test.go`
+  (`go test ./x/subaccounts/keeper/ -run TestF1_NegativeTncRearmKeepsWithdrawalsBlocked`),
+  showing re-arming each block keeps withdrawals blocked indefinitely while the
+  freeze lifts exactly 50 blocks after re-arming stops.
 
 ### Soundness / non-vacuity
 
