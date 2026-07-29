@@ -29,7 +29,7 @@ The models were written after reading those functions; the Go corroboration
 | F1b | Negative-TNC subaccount is structurally UNRESOLVABLE when the opposite side lacks overlapping-bankruptcy-price counterparties (no insurance/socialized-loss fallback) | **High** | CONFIRMED (logic) — this is the reachability driver for F1 | `tla/out/ntr_stuck.txt` |
 | F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic **+ runtime**); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic`, Go regression test `x/subaccounts/keeper/blockheight_regression_f2_test.go` |
 | F3 | Megavault freezes shareholders if equity reaches ≤0 with shares outstanding (all withdrawals pay 0 and revert; deposits blocked by `ErrNonPositiveEquity`, so no recovery via the normal path) | **Medium** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Coq, Go regression test `x/vault/keeper/megavault_freeze_f3_test.go` |
-| F4 | Dust freeze: sub-threshold holders can never withdraw a positive amount when equity < totalShares | **Low** | CONFIRMED (logic + runtime) | Lean `dust_freeze`/`redeem_zero_iff`, Go corroboration |
+| F4 | Dust freeze: sub-threshold holders can never withdraw a positive amount when equity < totalShares | **Low** | CONFIRMED (logic + runtime) | Lean `dust_freeze`/`redeem_zero_iff`, Go regression test `x/vault/keeper/dust_freeze_f4_test.go` |
 | F5 | Bridged-in funds permanently lost if bridging is disabled during the acknowledge→complete delay window (delayed `MsgCompleteBridge` errors, rolls back, then is deleted with no retry) | **High** | CONFIRMED (logic **+ runtime**) | `tla/out/bc_disable.txt`; Go regression test `protocol/x/delaymsg/keeper/bridge_freeze_f5_test.go` |
 | P5 | uint32 underflow in the gating window | n/a | MITIGATED (panic guard present) — but the guard is what turns F2 into a panic | Lean `guard_makes_agree` |
 | P6 | Megavault share conservation `total = Σ owner` | n/a | POSITIVE (holds) | `tla/out/mv_invariants.txt`, Lean/Coq `conservation_*` |
@@ -266,6 +266,11 @@ never be converted to a positive payout.
   Coq `redeem_zero_iff` cross-checks.
 - Go runtime: `redeemed(equity=100, shares=5, total=1000) = 0`, and no amount
   `1..5` yields a positive payout.
+- Go runtime regression test `protocol/x/vault/keeper/dust_freeze_f4_test.go`
+  (`TestF4_DustHoldersCannotWithdraw`, PASSING) against the real vault keeper:
+  with megavault equity 1 and 1000 total shares, `WithdrawFromMegavault` reverts
+  with `ErrInsufficientRedeemedQuoteQuantums` for every withdrawable amount
+  (1, 100, 500, 999) — the holder can never extract a positive payout.
 
 **Reachability / caveats.** Only bites holders below the dust threshold and only
 while `equity < totalShares`; economically these are sub-1-quantum stakes.

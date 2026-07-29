@@ -142,6 +142,10 @@ lean lean/VaultShares.lean
   (`go test ./x/subaccounts/keeper/ -run TestF1_NegativeTncRearmKeepsWithdrawalsBlocked`),
   showing re-arming each block keeps withdrawals blocked indefinitely while the
   freeze lifts exactly 50 blocks after re-arming stops.
+  F4 has a keeper-level regression test at
+  `protocol/x/vault/keeper/dust_freeze_f4_test.go`
+  (`go test ./x/vault/keeper/ -run TestF4_DustHoldersCannotWithdraw`), showing a
+  sub-threshold holder's withdrawals all revert when `equity < totalShares`.
 
 ### Soundness / non-vacuity
 
