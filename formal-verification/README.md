@@ -122,3 +122,24 @@ lean lean/VaultShares.lean
   and are Mathlib-free (`omega`/`decide` + core `Nat` lemmas).
 - The Go corroboration is standalone (`math/big` only) and does not depend on the
   protocol module.
+
+### Soundness / non-vacuity
+
+A common formal-methods pitfall is a spec that "passes" only because it never
+reaches the interesting states. We guard against it with TLC action coverage
+(`-coverage 1`) on the intended-PASS configs; all relevant actions fire and the
+key states are reached, so the passing invariants/liveness are meaningful:
+
+- `WithdrawalGating` baseline: `SeeNegTnc`, `Resolve` (×51), `SeeOutage`, `Tick`
+  all fire (so `ntActive`/`Blocked` states are reached and `WhileActiveBlocked`
+  is exercised); `AttemptWithdraw` is evaluated ×2756 and never triggers a panic
+  (so `SafetyNoPanic` holds non-vacuously); `Regress` is correctly disabled
+  (`AllowRegress = FALSE`).
+- `MegavaultShares` invariants: `Deposit`, `Withdraw`, `Lock`, `Unlock`,
+  `EquityLoss` all fire (so `Conservation` / `LockImpliesScheduled` are tested on
+  real locked/unlocked states).
+- `NegativeTncResolution` resolvable: `Deleverage` fires to `remaining = 0`
+  (so `ResolvedEventually` is satisfied by actual progress, not vacuity).
+
+Reproduce with e.g.
+`java -cp tools/tla2tools.jar tlc2.TLC -coverage 1 -config tla/WithdrawalGating_baseline.cfg tla/WithdrawalGating.tla`.
