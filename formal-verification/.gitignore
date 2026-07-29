@@ -1,0 +1,13 @@
+# Large downloaded tool binaries (reproduce via README instructions)
+tools/tla2tools.jar
+tools/*.jar
+# TLC scratch
+tla/*.old
+tla/states/
+lean/.lake/
+lean/build/
+coq/*.vo
+coq/*.vok
+coq/*.vos
+coq/*.glob
+coq/.*.aux

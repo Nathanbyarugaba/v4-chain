@@ -1,0 +1,505 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 42 and seed -5805852306613509929 with 1 worker on 4 cores with 4096MB heap and 64MB offheap memory [pid: 8984] (Linux 6.12.94+ amd64, Ubuntu 21.0.10 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /workspace/formal-verification/tla/WithdrawalGating.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Parsing file /tmp/FiniteSets.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module WithdrawalGating
+Starting... (2026-07-29 14:36:36)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-07-29 14:36:36.
+Progress(53) at 2026-07-29 14:36:37: 263 states generated, 104 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 104 total distinct states at (2026-07-29 14:36:37)
+Error: Temporal properties were violated.
+
+Error: The following behavior constitutes a counter-example:
+
+State 1: <Initial predicate>
+/\ coAge = 50
+/\ panicked = FALSE
+/\ ntExists = FALSE
+/\ coExists = FALSE
+/\ seenAhead = FALSE
+/\ ntActive = FALSE
+/\ ntAge = 50
+
+State 2: <SeeNegTnc line 97, col 5 to line 101, col 57 of module WithdrawalGating>
+/\ coAge = 50
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = FALSE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 3: <SeeOutage line 112, col 5 to line 115, col 67 of module WithdrawalGating>
+/\ coAge = 0
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 4: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 1
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 5: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 2
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 6: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 3
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 7: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 4
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 8: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 5
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 9: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 6
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 10: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 7
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 11: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 8
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 12: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 9
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 13: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 10
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 14: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 11
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 15: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 12
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 16: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 13
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 17: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 14
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 18: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 15
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 19: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 16
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 20: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 17
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 21: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 18
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 22: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 19
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 23: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 20
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 24: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 21
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 25: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 22
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 26: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 23
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 27: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 24
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 28: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 25
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 29: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 26
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 30: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 27
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 31: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 28
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 32: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 29
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 33: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 30
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 34: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 31
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 35: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 32
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 36: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 33
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 37: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 34
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 38: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 35
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 39: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 36
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 40: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 37
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 41: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 38
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 42: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 39
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 43: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 40
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 44: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 41
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 45: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 42
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 46: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 43
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 47: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 44
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 48: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 45
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 49: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 46
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 50: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 47
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 51: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 48
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 52: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 49
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 53: <Tick line 90, col 5 to line 93, col 60 of module WithdrawalGating>
+/\ coAge = 50
+/\ panicked = FALSE
+/\ ntExists = TRUE
+/\ coExists = TRUE
+/\ seenAhead = FALSE
+/\ ntActive = TRUE
+/\ ntAge = 0
+
+State 54: Stuttering
+Finished checking temporal properties in 00s at 2026-07-29 14:36:37
+263 states generated, 104 distinct states found, 0 states left on queue.
+Finished in 00s at (2026-07-29 14:36:37)
