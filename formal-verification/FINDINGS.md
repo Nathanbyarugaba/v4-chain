@@ -34,6 +34,7 @@ The models were written after reading those functions; the Go corroboration
 | P5 | uint32 underflow in the gating window | n/a | MITIGATED (panic guard present) — but the guard is what turns F2 into a panic | Lean `guard_makes_agree` |
 | P6 | Megavault share conservation `total = Σ owner` | n/a | POSITIVE (holds) | `tla/out/mv_invariants.txt`, Lean/Coq `conservation_*` |
 | P7 | Locked megavault shares can be permanently stranded | n/a | MITIGATED (`LockShares` always schedules an unlock) | `tla/out/mv_invariants.txt` (`LockImpliesScheduled`) |
+| P8 | Isolated collateral-pool solvency `poolBalance = Σ assigned collateral` | n/a | VERIFIED-SAFE iff bank-transfer amount = assigned-collateral delta; mismatch strands `|x−y|` | Lean `CollateralPool.lean` |
 
 ---
 
@@ -310,6 +311,24 @@ whose handler returned an error instead of deleting it.
   invariant `LockImpliesScheduled` HOLDS: `LockShares`
   (`x/vault/keeper/shares.go`) always schedules a `delaymsg` unlock at `tilBlock`
   before persisting the lock, so `UnlockShares` will eventually release them.
+
+- **P8 — Isolated collateral-pool conservation: VERIFIED-SAFE *conditionally*,
+  with the exact freeze quantity pinned down.** `lean/CollateralPool.lean` proves
+  the isolated open/close transfer
+  (`x/subaccounts/keeper/isolated_subaccount.go transferCollateralForIsolatedPerpetual`,
+  which `bank.SendCoins`es `stateTransition.QuoteQuantums` between the cross and
+  isolated pool module accounts) is fund-conservative and preserves each pool's
+  solvency invariant `poolBankBalance = Σ assigned-subaccount-collateral`
+  **iff** the bank-transfer amount equals the subaccount's assigned-collateral
+  delta (`solvency_iff_match`, `match_preserves_solvency`). It also proves that
+  any mismatch of `x` (bank) vs `y` (assigned) skews the two pools by exactly
+  `y - x` / `x - y` (`mismatch_skew`, `mismatch_breaks_solvency`) — i.e. one pool
+  becomes short by `|x - y|`, whose withdrawals then cannot all be honored
+  (frozen). **Reviewer action:** confirm `QuoteQuantums` on Open
+  (`quoteQuantumsBeforeUpdate`) and on Close (`updatedSubaccount.GetUsdcPosition()`)
+  always equals the corresponding change in the subaccount's collateral assigned
+  to the pool; the proof shows that equality is both necessary and sufficient for
+  no freeze.
 
 ---
 

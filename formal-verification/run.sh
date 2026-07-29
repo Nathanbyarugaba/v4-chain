@@ -68,7 +68,7 @@ echo "  exit=$?  (12 = invariant violated => bridged funds permanently dropped)"
 rm -rf tla/out/mm_* tla/states 2>/dev/null
 
 echo; echo "################## Lean 4 ##################"
-for f in WithdrawalGating VaultShares; do
+for f in WithdrawalGating VaultShares CollateralPool; do
   echo "=== lean lean/$f.lean ==="
   lean "lean/$f.lean" && echo "  OK: compiled, axioms printed above" || echo "  FAIL"
 done

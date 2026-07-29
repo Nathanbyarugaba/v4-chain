@@ -36,6 +36,7 @@ operations to corroborate the vault-arithmetic findings at runtime.
 | `BridgeCompletion` | `disable` | **FAIL** `NeverDropped` (exit 12) | F5: bridged funds dropped if disabled mid-flight |
 | Lean `WithdrawalGating.lean` | — | compiles, no `sorry` | uint32/gating arithmetic + monotonic setter |
 | Lean `VaultShares.lean` | — | compiles, no `sorry` | redemption bounds, dust threshold, conservation |
+| Lean `CollateralPool.lean` | — | compiles, no `sorry` | isolated pool solvency; exact stranded amount on mismatch (P8) |
 | Coq `Redemption.v` | — | compiles (`Qed`) | independent cross-check of redemption/conservation |
 
 The intended-**FAIL** checks are the vulnerability witnesses; TLC exit codes:
@@ -61,6 +62,7 @@ formal-verification/
   lean/
     WithdrawalGating.lean    uint32 no-underflow, bounded-freeze, monotonic setter
     VaultShares.lean         redeemed≤equity, dust threshold, conservation
+    CollateralPool.lean      isolated pool solvency + exact freeze quantity (P8)
   coq/
     Redemption.v             independent cross-check
   corroboration/
