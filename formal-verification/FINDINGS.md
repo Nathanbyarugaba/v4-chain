@@ -398,6 +398,67 @@ funds or keep the message queued rather than dropping it).
 
 ---
 
+## Proposed fixes (illustrative — NOT applied in this PR)
+
+These sketches show the shape of a minimal fix and its tradeoffs. They are
+**not** applied because they change security/consensus-critical semantics and
+belong to the maintainers; the existing regression tests are written to validate
+whichever approach is chosen (flip the assertion from "demonstrates the freeze"
+to "verifies the fix").
+
+**F2 (block-height regression panic)** — `x/subaccounts/keeper/subaccount.go`:
+replace the two `panic`s in the gating check with graceful handling (a stale /
+future "seen" record simply does not gate), and clamp the monotonic setter
+instead of panicking:
+
+```go
+// gating check: treat currentBlock < seen (post-regression) as "not recent"
+negativeTncSubaccountSeen := negativeTncSubaccountExists &&
+    currentBlock >= lastBlockNegativeTncSubaccountSeen &&
+    currentBlock-lastBlockNegativeTncSubaccountSeen <
+        types.WITHDRAWAL_AND_TRANSFERS_BLOCKED_AFTER_NEGATIVE_TNC_SUBACCOUNT_SEEN_BLOCKS
+// (same shape for the chain-outage branch)
+
+// SetNegativeTncSubaccountSeenAtBlock: clamp rather than panic on a lower height
+if exists && blockHeight < currentValue { return nil } // keep the higher value
+```
+Effect: a height regression degrades gracefully (withdrawals continue) instead
+of a chain-halt panic loop. Tradeoff: none material — the panic only ever fires
+in the already-broken regressed state.
+
+**F3 (megavault equity ≤ 0)** — `x/vault/keeper/deposit.go MintShares`: allow a
+bootstrap re-mint when the vault is insolvent so deposits can restore equity:
+
+```go
+if existingTotalShares.Sign() > 0 && equity.Sign() <= 0 {
+    sharesToMint = new(big.Int).Set(quantumsToDeposit) // bootstrap, as first deposit
+} else if existingTotalShares.Sign() > 0 {
+    // ... existing equity>0 path ...
+}
+```
+Tradeoff: bootstrap deposits dilute existing (now worthless) shares; whether/how
+to socialize the loss is a governance decision. Also consider a defined
+redemption path so stranded shares can always exit.
+
+**F5 (bridge complete dropped when disabled)** — either (a) do not gate the
+*settlement* of already-acknowledged events on the disable flag (let
+`CompleteBridge` run; the flag should gate acknowledgement), or (b) in
+`x/delaymsg` re-queue a message whose handler returned an error instead of
+deleting it:
+
+```go
+// DispatchMessagesForBlock: on handler error, reschedule instead of dropping
+if err != nil {
+    _ = k.rescheduleMessage(ctx, id, retryDelayBlocks) // keep the funds owed
+    continue // do NOT add id to the delete set
+}
+```
+Tradeoff: (b) needs a retry/backoff policy to avoid unbounded re-execution of a
+genuinely-invalid message; (a) is simpler and preserves the intent that the
+disable flag pauses *new* bridging, not settlement of in-flight deposits.
+
+---
+
 ## How to reproduce
 
 See `README.md`. In short: `./run.sh` (Java + Lean-via-elan + Coq on PATH).
