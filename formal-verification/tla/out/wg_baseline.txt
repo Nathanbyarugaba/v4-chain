@@ -1,7 +1,7 @@
 TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
 Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
 (Use the -nowarning option to disable this warning.)
-Running breadth-first search Model-Checking with fp 129 and seed -2367050331030392784 with 1 worker on 4 cores with 4096MB heap and 64MB offheap memory [pid: 8914] (Linux 6.12.94+ amd64, Ubuntu 21.0.10 x86_64, MSBDiskFPSet, DiskStateQueue).
+Running breadth-first search Model-Checking with fp 31 and seed -1102154499947074898 with 1 worker on 4 cores with 4096MB heap and 64MB offheap memory [pid: 13398] (Linux 6.12.94+ amd64, Ubuntu 21.0.10 x86_64, MSBDiskFPSet, DiskStateQueue).
 Parsing file /workspace/formal-verification/tla/WithdrawalGating.tla
 Parsing file /tmp/Naturals.tla
 Parsing file /tmp/TLC.tla
@@ -12,13 +12,13 @@ Semantic processing of module Sequences
 Semantic processing of module FiniteSets
 Semantic processing of module TLC
 Semantic processing of module WithdrawalGating
-Starting... (2026-07-29 14:36:35)
+Starting... (2026-07-29 14:47:54)
 Implied-temporal checking--satisfiability problem has 1 branches.
 Computing initial states...
-Finished computing initial states: 1 distinct state generated at 2026-07-29 14:36:35.
-Progress(54) at 2026-07-29 14:36:35: 5,670 states generated, 2,756 distinct states found, 0 states left on queue.
-Checking temporal properties for the complete state space with 2756 total distinct states at (2026-07-29 14:36:35)
-Finished checking temporal properties in 00s at 2026-07-29 14:36:35
+Finished computing initial states: 1 distinct state generated at 2026-07-29 14:47:54.
+Progress(54) at 2026-07-29 14:47:54: 5,670 states generated, 2,756 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 2756 total distinct states at (2026-07-29 14:47:54)
+Finished checking temporal properties in 00s at 2026-07-29 14:47:54
 Model checking completed. No error has been found.
   Estimates of the probability that TLC did not check all reachable states
   because two distinct states had the same fingerprint:
@@ -26,4 +26,4 @@ Model checking completed. No error has been found.
 5670 states generated, 2756 distinct states found, 0 states left on queue.
 The depth of the complete state graph search is 54.
 The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 2 and the 95th percentile is 1).
-Finished in 00s at (2026-07-29 14:36:35)
+Finished in 00s at (2026-07-29 14:47:54)

@@ -1,0 +1,235 @@
+# Findings — Permanent Freezing of Funds (formal verification)
+
+This document reports permanent-fund-freeze conditions in the dYdX v4 protocol
+that were **formally demonstrated** by the specs/proofs in this directory
+(TLA+/TLC for protocol state machines; Lean 4 + Coq for the underlying integer
+arithmetic), plus lightweight Go runtime corroboration.
+
+**Status of each item is classified honestly:**
+
+- `CONFIRMED (logic)` — the property is a machine-checked fact about the code's
+  logic/arithmetic as written (model faithfully abstracts the cited Go source).
+- `REACHABILITY` — the *real-world* precondition needed to trigger it on a live
+  chain, and how plausible it is. These items warrant maintainer review to
+  decide exploitability; I did not run a full validator to trigger them.
+- `MITIGATED` / `POSITIVE` — checked properties that HOLD (no bug), documented so
+  the audit surface is complete.
+
+Model ↔ code fidelity: each spec header lists the exact `file:line` it abstracts.
+The models were written after reading those functions; the Go corroboration
+(`corroboration/`) executes the real `math/big` operations to confirm behavior.
+
+---
+
+## Summary table
+
+| ID | Title | Severity | Status | Evidence |
+|----|-------|----------|--------|----------|
+| F1 | Unresolvable negative-TNC subaccount permanently freezes an entire collateral pool | **High** | CONFIRMED (logic); REACHABILITY gated on deleveraging progress | `tla/out/wg_h5.txt`, Lean `rearm_always_blocked` + `freeze_is_bounded` |
+| F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic` / `regression_unguarded_wrong` |
+| F3 | Megavault bricks if equity reaches 0 with shares outstanding (all withdrawals pay 0; deposits divide-by-zero) | **Medium–High** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Go `panicked=true`, Coq |
+| F4 | Dust freeze: sub-threshold holders can never withdraw a positive amount when equity < totalShares | **Low** | CONFIRMED (logic + runtime) | Lean `dust_freeze`/`redeem_zero_iff`, Go corroboration |
+| P5 | uint32 underflow in the gating window | n/a | MITIGATED (panic guard present) — but the guard is what turns F2 into a panic | Lean `guard_makes_agree` |
+| P6 | Megavault share conservation `total = Σ owner` | n/a | POSITIVE (holds) | `tla/out/mv_invariants.txt`, Lean/Coq `conservation_*` |
+| P7 | Locked megavault shares can be permanently stranded | n/a | MITIGATED (`LockShares` always schedules an unlock) | `tla/out/mv_invariants.txt` (`LockImpliesScheduled`) |
+
+---
+
+## F1 — Unresolvable negative-TNC subaccount freezes a whole collateral pool  *(High)*
+
+**Where.**
+`protocol/x/subaccounts/keeper/subaccount.go` `internalCanUpdateSubaccounts`
+(~L560–620) blocks **all** withdrawals/transfers for a collateral pool when a
+negative-TNC subaccount was seen within the last
+`WITHDRAWAL_AND_TRANSFERS_BLOCKED_AFTER_NEGATIVE_TNC_SUBACCOUNT_SEEN_BLOCKS = 50`
+blocks (`x/subaccounts/types/update.go:157`). The window is **re-armed every
+block** that a negative-TNC subaccount still exists:
+`protocol/x/clob/abci.go` (EndBlock, ~L281-284) →
+`protocol/x/clob/keeper/deleveraging.go` `GateWithdrawalsIfNegativeTncSubaccountSeen`
+(L171) inserts a zero-fill deleveraging op, and
+`protocol/x/clob/keeper/process_operations.go:805` calls
+`SetNegativeTncSubaccountSeenAtBlock(ctx, perpetualId, currentBlockHeight)`.
+
+**Freeze mechanism.** The 50-block breaker is only *temporary* if the offending
+subaccount is eventually brought back to non-negative TNC by deleveraging. If it
+**cannot** be resolved — e.g. no opposite-side subaccounts to deleverage against
+(`OffsetSubaccountPerpetualPosition` leaves a remainder) **and** the insurance
+fund is empty (`IsValidInsuranceFundDelta` blocks a negative fund) — the
+subaccount stays negative-TNC, the breaker re-arms every block, and the pool's
+withdrawals/transfers are frozen **indefinitely**.
+
+**Formal evidence.**
+- TLA+ (`tla/WithdrawalGating.tla`, config `..._H5_unresolvable.cfg`,
+  `CanResolve = FALSE`): the invariant `WhileActiveBlocked` HOLDS (funds are
+  blocked in every reachable state while active) and the liveness property
+  `EventuallyUnblocked == <>[](~Blocked)` **FAILS** — TLC exit code `13`
+  (`tla/out/wg_h5.txt`). Counterexample: `SeeNegTnc` then an infinite `Tick`
+  stutter with `ntActive = TRUE, ntAge = 0` (blocked forever).
+- Lean (`lean/WithdrawalGating.lean`): `rearm_always_blocked : blocked c c = true`
+  (while re-armed to the current block, always blocked) and, dually,
+  `freeze_is_bounded : last + 50 ≤ cur → blocked cur last = false` (the freeze is
+  bounded **iff** `last` stops advancing). Together: freeze is permanent exactly
+  when re-arming never stops, i.e. the subaccount is never resolved.
+- Baseline config (`CanResolve = TRUE`) passes all properties (`tla/out/wg_baseline.txt`),
+  showing the design is correct **as long as deleveraging always makes progress**.
+
+**Reachability / caveats.** On a healthy chain deleveraging + insurance fund
+resolve negative-TNC accounts quickly. The freeze requires a negative-TNC
+subaccount that is *structurally* unresolvable (no counterparties on the needed
+side and depleted insurance). This is a **liveness dependency on the deleveraging
+subsystem**: any condition that can make deleveraging unable to zero-out a
+negative-TNC position (illiquid/one-sided market during extreme moves, or a bug
+that makes `GateWithdrawals...` keep re-arming without progress) turns a
+temporary safety pause into a permanent freeze of the entire pool.
+
+**Suggested mitigation.** Bound the total re-arm duration independently of
+per-block re-arming (a hard cap on cumulative gating), and/or guarantee a
+terminal resolution path (final settlement / socialized loss) that always clears
+a stuck negative-TNC subaccount so the breaker provably lifts.
+
+---
+
+## F2 — Block-height regression → panic on every withdrawal/transfer  *(Medium)*
+
+**Where.** Same gating block in `subaccount.go`. Before the window check the
+keeper panics:
+
+```go
+if negativeTncSubaccountExists && currentBlock < lastBlockNegativeTncSubaccountSeen { panic(...) }
+if chainOutageExists          && currentBlock < downtimeInfo.BlockInfo.Height     { panic(...) }
+```
+
+and `SetNegativeTncSubaccountSeenAtBlock`
+(`x/subaccounts/keeper/negative_tnc_subaccount.go`) itself panics if the new
+height is below the stored one. These guard against Go `uint32` underflow of
+`currentBlock - lastSeen`.
+
+**Freeze mechanism.** If a persisted "seen" height ever ends up **greater than**
+the current block height while a record is armed, the guard fires on *every*
+Withdrawal/Transfer — a deterministic panic loop that halts the withdrawal path
+(and, since it panics in the update path, blocks the affected flows chain-wide).
+
+**Formal evidence.**
+- TLA+ (config `..._H1_regress.cfg`, `AllowRegress = TRUE`): `SafetyNoPanic`
+  **FAILS**, TLC exit `12` (`tla/out/wg_h1.txt`). Trace: `SeeNegTnc → Regress →
+  AttemptWithdraw ⇒ panicked = TRUE`. With `AllowRegress = FALSE` the invariant
+  HOLDS (baseline).
+- Lean: `regression_causes_panic : newHeight < stored → setSeen stored newHeight
+  = .error () ∧ guardFires newHeight stored = true` (both the setter and the
+  withdrawal guard fire). `no_panic_when_monotone` proves the invariant
+  `stored ≤ blockHeight` is preserved and no panic occurs **as long as** heights
+  are monotone non-decreasing. `regression_unguarded_wrong` shows why the guard
+  exists: without it, a 1-block regression makes the raw uint32 expression
+  silently report `not blocked`.
+
+**Reachability / caveats.** Block height is normally strictly monotonic, so this
+is **operationally gated**: it requires a height regression relative to persisted
+state — e.g. restarting a node from an older snapshot without wiping module
+state, a faulty state-migration/upgrade that lowers height, or a chain reset that
+preserves the `NegativeTncSubaccountForCollateralPool...` / downtime records.
+It is not reachable purely from user transactions on a correctly operated,
+monotonic chain.
+
+**Suggested mitigation.** On the withdrawal path, treat `currentBlock < seen` as
+"stale record → not blocked / clear the record" instead of `panic`; and clamp
+(not panic) in `SetNegativeTncSubaccountSeenAtBlock`. A panic here converts a
+recoverable state anomaly into a hard freeze.
+
+---
+
+## F3 — Megavault bricks when equity hits 0 with shares outstanding  *(Medium–High)*
+
+**Where.**
+- `protocol/x/vault/keeper/deposit.go` `MintShares` (~L61–142): when
+  `existingTotalShares > 0`, `sharesToMint = quantums * totalShares / equity`
+  (`big.Int.Quo`, L95). If `equity == 0` this is a **division by zero → panic**;
+  if `equity < 0` the mint goes negative and `SetOwnerShares`/`SetTotalShares`
+  reject it (`ErrNegativeShares`). Either way deposits revert.
+- `protocol/x/vault/keeper/withdraw.go` `RedeemFromMainAndSubVaults`:
+  `redeemed = equity * shares / totalShares`; `WithdrawFromMegavault` reverts
+  when `redeemed <= 0` (`ErrInsufficientRedeemedQuoteQuantums`).
+
+**Freeze mechanism.** If megavault equity reaches `0` (or below) while shares are
+still outstanding, **every** withdrawal floor-divides to `0` and reverts, **and**
+new deposits (which would raise equity) hit the divide-by-zero/negative path and
+revert. The vault is bricked: outstanding shares cannot be redeemed and equity
+cannot be topped up through the normal deposit path.
+
+**Formal evidence.**
+- TLA+ (`tla/MegavaultShares.tla`, config `..._dust.cfg`): `NoDustFreeze`
+  **FAILS**, TLC exit `12` (`tla/out/mv_dust.txt`). Minimal trace:
+  `Deposit(o1,1)` → 1 share, equity 1; `EquityLoss` → equity 0; now `o1` holds a
+  positive, fully-unlocked share that can never be redeemed. (The model guards
+  `Deposit` when `equity = 0 ∧ totalShares > 0`, matching the Go revert/panic.)
+- Lean: `equity_zero_bricks : redeemed 0 shares total = 0`. Coq: same
+  (`equity_zero_bricks`).
+- Go runtime (`corroboration/`): `mintShares(q=1000, total=1000, equity=0)` →
+  `panicked=true`; `redeemed(equity=0, shares=5, total=1000) = 0`.
+
+**Reachability / caveats.** Requires megavault equity to actually reach `≤ 0`
+with shares still outstanding (catastrophic vault losses). Recovery is only
+possible via an equity injection that does **not** go through `MintShares`
+(e.g. an operator/other transfer directly into the main vault subaccount), which
+is an operational escape hatch, not a user-available one.
+
+**Suggested mitigation.** Special-case `equity <= 0` in `MintShares` (bootstrap
+re-mint at parity instead of dividing) and provide a defined recovery/redemption
+path when equity is non-positive, so outstanding shares are never permanently
+unredeemable.
+
+---
+
+## F4 — Dust freeze for sub-threshold holders when equity < totalShares  *(Low)*
+
+**Where.** `RedeemFromMainAndSubVaults` (`withdraw.go`),
+`redeemed = equity * shares / totalShares` (floor), revert if `<= 0`.
+
+**Freeze mechanism.** When `equity < totalShares` (vault worth < 1 quantum per
+share), any holder whose withdrawable shares `s` satisfy `equity * s < totalShares`
+gets `redeemed = 0` for `s` **and every smaller amount**, so those shares can
+never be converted to a positive payout.
+
+**Formal evidence.**
+- Lean: `redeem_zero_iff : 0 < total → (redeemed equity shares total = 0 ↔
+  equity*shares < total)` (exact threshold) and `dust_freeze : equity*s < total →
+  ∀ s' ≤ s, redeemed equity s' total = 0` (monotone ⇒ no smaller amount helps).
+  Coq `redeem_zero_iff` cross-checks.
+- Go runtime: `redeemed(equity=100, shares=5, total=1000) = 0`, and no amount
+  `1..5` yields a positive payout.
+
+**Reachability / caveats.** Only bites holders below the dust threshold and only
+while `equity < totalShares`; economically these are sub-1-quantum stakes.
+Severity **Low** (griefing/dust), but formally those funds are unrecoverable.
+
+**Suggested mitigation.** Allow a full-exit redemption that rounds in the
+holder's favor for a 100% withdrawal, or a minimum-viable redemption path, so a
+holder can always exit their entire (however small) position.
+
+---
+
+## Positive / mitigated results (documented for completeness)
+
+- **P5 — uint32 underflow in the window check: MITIGATED.** Lean
+  `guard_makes_agree` proves that, under the guard's precondition `last ≤ cur`,
+  the raw uint32 expression equals the intended predicate. The panic guard is
+  therefore correct — but note it is precisely this guard that turns a
+  height-regression into F2's panic-freeze rather than a silent bypass.
+
+- **P6 — Megavault share conservation: HOLDS.** `tla/out/mv_invariants.txt`
+  (`Conservation`, `LockedLEOwned`, `NonNeg` all pass across deposit/withdraw/
+  lock/unlock). Lean/Coq `conservation_withdraw` / `conservation_mint` prove the
+  per-step preservation (`MintShares`/withdraw move both counters by the same
+  delta). `redeemed_le_equity` proves redemptions never over-pay.
+
+- **P7 — Locked shares cannot be permanently stranded: MITIGATED.** TLA+
+  invariant `LockImpliesScheduled` HOLDS: `LockShares`
+  (`x/vault/keeper/shares.go`) always schedules a `delaymsg` unlock at `tilBlock`
+  before persisting the lock, so `UnlockShares` will eventually release them.
+
+---
+
+## How to reproduce
+
+See `README.md`. In short: `./run.sh` (Java + Lean-via-elan + Coq on PATH).
+Intended-failing checks (F1/H5, F2/H1, F3–F4/dust) are the vulnerability
+witnesses; everything else HOLDS.
