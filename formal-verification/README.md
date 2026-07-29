@@ -92,7 +92,9 @@ sudo apt-get update && sudo apt-get install -y coq
 
 ```bash
 export PATH="$HOME/.elan/bin:$PATH"
-./run.sh
+./run.sh   # runs all TLA+/TLC checks, Lean, Coq, AND the F1-F5 Go keeper
+           # regression tests (the Go step is skipped if the toolchain/protocol
+           # module is unavailable)
 ```
 
 Or individually:

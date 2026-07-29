@@ -78,4 +78,19 @@ echo "=== coqc coq/Redemption.v ==="
 ( cd coq && coqc -w none Redemption.v && echo "  OK: compiled (all Qed)" || echo "  FAIL" )
 rm -f coq/*.vo coq/*.vok coq/*.vos coq/*.glob coq/.*.aux 2>/dev/null
 
+echo; echo "################## Go keeper regression tests (real dYdX keepers) ##################"
+# These exercise findings F1, F2, F3, F4, F5 end-to-end against the real keepers.
+# Requires the Go toolchain and the protocol module (../protocol). Skipped if go
+# is unavailable. All are test-only files; no production code is modified.
+if command -v go >/dev/null 2>&1 && [ -d ../protocol ]; then
+  ( cd ../protocol && go test \
+      ./x/subaccounts/keeper/ ./x/vault/keeper/ ./x/delaymsg/keeper/ \
+      -run 'TestF1_NegativeTncRearmKeepsWithdrawalsBlocked|TestF2_BlockHeightRegression_PanicsOnWithdrawal|TestF3_MegavaultEquityZero_FreezesShareholders|TestF4_DustHoldersCannotWithdraw|TestF5_BridgingDisabledDuringDelay_PermanentlyFreezesFunds' \
+      -count=1 ) \
+    && echo "  OK: F1/F2/F3/F4/F5 keeper regression tests passed" \
+    || echo "  FAIL: keeper regression tests"
+else
+  echo "  SKIP: go toolchain or ../protocol not available"
+fi
+
 echo; echo "Done. Intended-failing checks (H1, H5, dust) are the vulnerability witnesses; see FINDINGS.md."
