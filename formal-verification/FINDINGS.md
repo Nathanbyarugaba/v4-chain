@@ -35,6 +35,7 @@ The models were written after reading those functions; the Go corroboration
 | P6 | Megavault share conservation `total = Σ owner` | n/a | POSITIVE (holds) | `tla/out/mv_invariants.txt`, Lean/Coq `conservation_*` |
 | P7 | Locked megavault shares can be permanently stranded | n/a | MITIGATED (`LockShares` always schedules an unlock) | `tla/out/mv_invariants.txt` (`LockImpliesScheduled`) |
 | P8 | Isolated collateral-pool solvency `poolBalance = Σ assigned collateral` | n/a | VERIFIED-SAFE iff bank-transfer amount = assigned-collateral delta; mismatch strands `|x−y|` | Lean `CollateralPool.lean` |
+| P9 | Withdrawal rate-limiter (`x/ratelimit`) cannot permanently freeze funds | n/a | VERIFIED-SAFE (validation enforces `baseline > 0`, so capacity provably recovers) | `tla/out/rl_valid.txt` / `rl_zerobaseline.txt` |
 
 ---
 
@@ -361,6 +362,21 @@ funds or keep the message queued rather than dropping it).
   invariant `LockImpliesScheduled` HOLDS: `LockShares`
   (`x/vault/keeper/shares.go`) always schedules a `delaymsg` unlock at `tilBlock`
   before persisting the lock, so `UnlockShares` will eventually release them.
+
+- **P9 — Withdrawal rate-limiter cannot permanently freeze funds: VERIFIED-SAFE.**
+  `x/ratelimit` blocks a withdrawal when `amount > capacity`
+  (`ProcessWithdrawal`), and each block moves capacity toward
+  `baseline = max(baseline_minimum, baseline_tvl_ppm · tvl)`
+  (`util/capacity.go`, `util/baseline.go`). Crucially, `LimitParams.Validate`
+  (`types/params.go`) **rejects** `baseline_minimum <= 0`, `baseline_tvl_ppm == 0`
+  and `period == 0`, so `baseline > 0` always. `tla/RateLimitRecovery.tla`
+  config `valid` shows a fully-depleted capacity provably recovers to the
+  baseline so withdrawals up to the baseline become possible again
+  (`CanWithdrawEventually` HOLDS). The `zero-baseline` config — the state
+  `Validate` forbids — shows capacity stuck at 0 forever
+  (`CanWithdrawEventually` FAILS), demonstrating the validation guard is
+  load-bearing. (Withdrawals *larger* than the baseline are throttled across
+  periods by design; that is rate-limiting, not a freeze.)
 
 - **P8 — Isolated collateral-pool conservation: VERIFIED-SAFE *conditionally*,
   with the exact freeze quantity pinned down.** `lean/CollateralPool.lean` proves

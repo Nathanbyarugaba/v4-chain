@@ -34,6 +34,8 @@ operations to corroborate the vault-arithmetic findings at runtime.
 | `MegavaultShares` | `dust` | **FAIL** `NoDustFreeze` (exit 12) | F3/F4: equity→0 freeze + dust freeze |
 | `BridgeCompletion` | `baseline` | **PASS** (exit 0) | acknowledged bridges always complete |
 | `BridgeCompletion` | `disable` | **FAIL** `NeverDropped` (exit 12) | F5: bridged funds dropped if disabled mid-flight |
+| `RateLimitRecovery` | `valid` | **PASS** (exit 0) | P9: depleted capacity recovers → withdrawals possible |
+| `RateLimitRecovery` | `zerobaseline` | **FAIL** `CanWithdrawEventually` (exit 13) | P9: freeze that validation (`baseline>0`) prevents |
 | Lean `WithdrawalGating.lean` | — | compiles, no `sorry` | uint32/gating arithmetic + monotonic setter |
 | Lean `VaultShares.lean` | — | compiles, no `sorry` | redemption bounds, dust threshold, conservation |
 | Lean `CollateralPool.lean` | — | compiles, no `sorry` | isolated pool solvency; exact stranded amount on mismatch (P8) |
@@ -58,6 +60,8 @@ formal-verification/
     MegavaultShares_*.cfg     invariants / dust
     BridgeCompletion.tla     x/bridge completion vs delaymsg drop (F5)
     BridgeCompletion_*.cfg    baseline / disable
+    RateLimitRecovery.tla    x/ratelimit capacity recovery liveness (P9)
+    RateLimitRecovery_*.cfg   valid / zerobaseline
     out/                      saved TLC output + counterexample traces
   lean/
     WithdrawalGating.lean    uint32 no-underflow, bounded-freeze, monotonic setter

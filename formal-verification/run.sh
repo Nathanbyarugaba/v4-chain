@@ -65,6 +65,14 @@ echo; echo "=== BridgeCompletion: disable-in-window (expect FAIL: NeverDropped, 
 $TLC -deadlock -metadir tla/out/mm_bc_dis -config tla/BridgeCompletion_disable.cfg tla/BridgeCompletion.tla >tla/out/bc_disable.txt 2>&1
 echo "  exit=$?  (12 = invariant violated => bridged funds permanently dropped)"
 
+echo; echo "=== RateLimitRecovery: valid (expect PASS, exit 0) ==="
+$TLC -deadlock -metadir tla/out/mm_rl_v -config tla/RateLimitRecovery_valid.cfg tla/RateLimitRecovery.tla >tla/out/rl_valid.txt 2>&1
+echo "  exit=$?  (0 = depleted capacity recovers => withdrawals become possible)"
+
+echo; echo "=== RateLimitRecovery: zero-baseline (forbidden by Validate; expect FAIL exit 13) ==="
+$TLC -deadlock -metadir tla/out/mm_rl_z -config tla/RateLimitRecovery_zerobaseline.cfg tla/RateLimitRecovery.tla >tla/out/rl_zerobaseline.txt 2>&1
+echo "  exit=$?  (13 = liveness violated => the freeze the validation guard prevents)"
+
 rm -rf tla/out/mm_* tla/states 2>/dev/null
 
 echo; echo "################## Lean 4 ##################"
