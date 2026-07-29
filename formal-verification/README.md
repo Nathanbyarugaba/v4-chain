@@ -132,6 +132,11 @@ lean lean/VaultShares.lean
   which shows that with equity 0 and shares outstanding, withdrawals revert and
   deposits are blocked by `ErrNonPositiveEquity` (a clean error, not a panic —
   correcting an earlier draft claim).
+  F2 likewise has a keeper-level regression test at
+  `protocol/x/subaccounts/keeper/blockheight_regression_f2_test.go`
+  (`go test ./x/subaccounts/keeper/ -run TestF2_BlockHeightRegression_PanicsOnWithdrawal`),
+  showing a withdrawal panics when a negative-TNC "seen" height sits above the
+  current block height (the post-regression state), while a deposit does not.
 
 ### Soundness / non-vacuity
 

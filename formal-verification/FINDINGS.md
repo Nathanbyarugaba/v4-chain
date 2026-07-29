@@ -27,7 +27,7 @@ The models were written after reading those functions; the Go corroboration
 |----|-------|----------|--------|----------|
 | F1 | Unresolvable negative-TNC subaccount permanently freezes an entire collateral pool | **High** | CONFIRMED (logic); REACHABILITY confirmed for one-sided/illiquid markets (see F1b) | `tla/out/wg_h5.txt`, `tla/out/ntr_stuck.txt`, Lean `rearm_always_blocked` + `freeze_is_bounded` |
 | F1b | Negative-TNC subaccount is structurally UNRESOLVABLE when the opposite side lacks overlapping-bankruptcy-price counterparties (no insurance/socialized-loss fallback) | **High** | CONFIRMED (logic) — this is the reachability driver for F1 | `tla/out/ntr_stuck.txt` |
-| F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic` / `regression_unguarded_wrong` |
+| F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic **+ runtime**); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic`, Go regression test `x/subaccounts/keeper/blockheight_regression_f2_test.go` |
 | F3 | Megavault freezes shareholders if equity reaches ≤0 with shares outstanding (all withdrawals pay 0 and revert; deposits blocked by `ErrNonPositiveEquity`, so no recovery via the normal path) | **Medium** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Coq, Go regression test `x/vault/keeper/megavault_freeze_f3_test.go` |
 | F4 | Dust freeze: sub-threshold holders can never withdraw a positive amount when equity < totalShares | **Low** | CONFIRMED (logic + runtime) | Lean `dust_freeze`/`redeem_zero_iff`, Go corroboration |
 | F5 | Bridged-in funds permanently lost if bridging is disabled during the acknowledge→complete delay window (delayed `MsgCompleteBridge` errors, rolls back, then is deleted with no retry) | **High** | CONFIRMED (logic **+ runtime**) | `tla/out/bc_disable.txt`; Go regression test `protocol/x/delaymsg/keeper/bridge_freeze_f5_test.go` |
@@ -159,6 +159,11 @@ Withdrawal/Transfer — a deterministic panic loop that halts the withdrawal pat
   are monotone non-decreasing. `regression_unguarded_wrong` shows why the guard
   exists: without it, a 1-block regression makes the raw uint32 expression
   silently report `not blocked`.
+- Go runtime regression test `protocol/x/subaccounts/keeper/blockheight_regression_f2_test.go`
+  (`TestF2_BlockHeightRegression_PanicsOnWithdrawal`, PASSING) against the real
+  subaccounts keeper: with a negative-TNC "seen" height recorded above the current
+  block height (the post-regression state), a `Deposit` does not panic but a
+  `Withdrawal` panics on the uint32-underflow guard.
 
 **Reachability / caveats.** Block height is normally strictly monotonic, so this
 is **operationally gated**: it requires a height regression relative to persisted
