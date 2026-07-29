@@ -1,0 +1,44 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 40 and seed -6891482124064848064 with 1 worker on 4 cores with 4096MB heap and 64MB offheap memory [pid: 10291] (Linux 6.12.94+ amd64, Ubuntu 21.0.10 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /workspace/formal-verification/tla/MegavaultShares.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module MegavaultShares
+Starting... (2026-07-29 14:40:17)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-07-29 14:40:17.
+Error: Invariant NoDustFreeze is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ equity = 0
+/\ ownerShares = (o1 :> 0 @@ o2 :> 0)
+/\ scheduled = (o1 :> FALSE @@ o2 :> FALSE)
+/\ locked = (o1 :> 0 @@ o2 :> 0)
+/\ totalShares = 0
+
+State 2: <Deposit line 75, col 5 to line 91, col 38 of module MegavaultShares>
+/\ equity = 1
+/\ ownerShares = (o1 :> 1 @@ o2 :> 0)
+/\ scheduled = (o1 :> FALSE @@ o2 :> FALSE)
+/\ locked = (o1 :> 0 @@ o2 :> 0)
+/\ totalShares = 1
+
+State 3: <EquityLoss line 123, col 5 to line 125, col 64 of module MegavaultShares>
+/\ equity = 0
+/\ ownerShares = (o1 :> 1 @@ o2 :> 0)
+/\ scheduled = (o1 :> FALSE @@ o2 :> FALSE)
+/\ locked = (o1 :> 0 @@ o2 :> 0)
+/\ totalShares = 1
+
+16 states generated, 13 distinct states found, 10 states left on queue.
+The depth of the complete state graph search is 3.
+The average outdegree of the complete state graph is 6 (minimum is 6, the maximum 6 and the 95th percentile is 6).
+Finished in 00s at (2026-07-29 14:40:17)
