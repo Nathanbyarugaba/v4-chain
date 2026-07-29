@@ -15,17 +15,23 @@ import (
 	"math/big"
 )
 
-// mirrors deposit.go MintShares share math (existingTotalShares > 0 branch).
-func mintShares(quantums, totalShares, equity *big.Int) (mint *big.Int, panicked bool) {
-	defer func() {
-		if r := recover(); r != nil {
-			panicked = true
-		}
-	}()
+// mirrors deposit.go MintShares share math (existingTotalShares > 0 branch),
+// INCLUDING the real keeper's `equity.Sign() <= 0` guard.
+//
+// NOTE: the real code returns ErrNonPositiveEquity when equity <= 0; it does NOT
+// divide by zero / panic. (An earlier draft of F3 wrongly claimed a panic; the
+// keeper regression test x/vault/keeper/megavault_freeze_f3_test.go pins the true
+// behavior.) `errNonPositiveEquity` below models that guard.
+var errNonPositiveEquity = fmt.Errorf("ErrNonPositiveEquity")
+
+func mintShares(quantums, totalShares, equity *big.Int) (mint *big.Int, err error) {
+	if equity.Sign() <= 0 { // MintShares guard: return error, do NOT divide.
+		return nil, errNonPositiveEquity
+	}
 	mint = new(big.Int).Set(quantums)
 	mint.Mul(mint, totalShares)
-	mint.Quo(mint, equity) // <-- panics if equity == 0 (Go big.Int division by zero)
-	return mint, false
+	mint.Quo(mint, equity)
+	return mint, nil
 }
 
 // mirrors withdraw.go redeemed = equity * shares / totalShares (floor).
@@ -39,11 +45,11 @@ func redeemed(equity, shares, total *big.Int) *big.Int {
 func main() {
 	bi := big.NewInt
 
-	fmt.Println("== F3: MintShares divides by equity; equity==0 with shares outstanding ==")
-	mint, panicked := mintShares(bi(1000), bi(1000), bi(0))
-	fmt.Printf("  mintShares(q=1000, total=1000, equity=0): panicked=%v (mint=%v)\n", panicked, mint)
-	if !panicked {
-		fmt.Println("  UNEXPECTED: expected a division-by-zero panic")
+	fmt.Println("== F3: MintShares is blocked when equity==0 with shares outstanding ==")
+	mint, err := mintShares(bi(1000), bi(1000), bi(0))
+	fmt.Printf("  mintShares(q=1000, total=1000, equity=0): err=%v (mint=%v)\n", err, mint)
+	if err == nil {
+		fmt.Println("  UNEXPECTED: expected ErrNonPositiveEquity (deposit blocked, no panic)")
 	}
 
 	fmt.Println("== F3: redemption pays 0 when equity==0 while shares are outstanding ==")

@@ -74,10 +74,11 @@ Init ==
 Deposit(o, q) ==
     /\ q > 0
     /\ equity + q <= MaxEquity
-    \* When totalShares>0 the Go code divides by `equity`; equity<=0 there makes
-    \* big.Int.Quo panic (division by zero). We model that as the deposit being
-    \* unavailable, which is exactly what makes the vault UN-recoverable once
-    \* equity hits 0 with shares outstanding (see NoDustFreeze / FINDINGS.md).
+    \* When totalShares>0 the Go MintShares returns ErrNonPositiveEquity if
+    \* equity<=0 (a clean guard before the division; NOT a panic). We model that
+    \* as the deposit being unavailable, which is exactly what makes the vault
+    \* UN-recoverable via the normal path once equity hits 0 with shares
+    \* outstanding (see NoDustFreeze / FINDINGS.md F3).
     /\ (totalShares = 0 \/ equity > 0)
     /\ LET mint == IF totalShares <= 0
                    THEN q

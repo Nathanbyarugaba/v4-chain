@@ -28,7 +28,7 @@ The models were written after reading those functions; the Go corroboration
 | F1 | Unresolvable negative-TNC subaccount permanently freezes an entire collateral pool | **High** | CONFIRMED (logic); REACHABILITY confirmed for one-sided/illiquid markets (see F1b) | `tla/out/wg_h5.txt`, `tla/out/ntr_stuck.txt`, Lean `rearm_always_blocked` + `freeze_is_bounded` |
 | F1b | Negative-TNC subaccount is structurally UNRESOLVABLE when the opposite side lacks overlapping-bankruptcy-price counterparties (no insurance/socialized-loss fallback) | **High** | CONFIRMED (logic) — this is the reachability driver for F1 | `tla/out/ntr_stuck.txt` |
 | F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic` / `regression_unguarded_wrong` |
-| F3 | Megavault bricks if equity reaches 0 with shares outstanding (all withdrawals pay 0; deposits divide-by-zero) | **Medium–High** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Go `panicked=true`, Coq |
+| F3 | Megavault freezes shareholders if equity reaches ≤0 with shares outstanding (all withdrawals pay 0 and revert; deposits blocked by `ErrNonPositiveEquity`, so no recovery via the normal path) | **Medium** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Coq, Go regression test `x/vault/keeper/megavault_freeze_f3_test.go` |
 | F4 | Dust freeze: sub-threshold holders can never withdraw a positive amount when equity < totalShares | **Low** | CONFIRMED (logic + runtime) | Lean `dust_freeze`/`redeem_zero_iff`, Go corroboration |
 | F5 | Bridged-in funds permanently lost if bridging is disabled during the acknowledge→complete delay window (delayed `MsgCompleteBridge` errors, rolls back, then is deleted with no retry) | **High** | CONFIRMED (logic **+ runtime**) | `tla/out/bc_disable.txt`; Go regression test `protocol/x/delaymsg/keeper/bridge_freeze_f5_test.go` |
 | P5 | uint32 underflow in the gating window | n/a | MITIGATED (panic guard present) — but the guard is what turns F2 into a panic | Lean `guard_makes_agree` |
@@ -175,34 +175,50 @@ recoverable state anomaly into a hard freeze.
 
 ---
 
-## F3 — Megavault bricks when equity hits 0 with shares outstanding  *(Medium–High)*
+## F3 — Megavault freezes shareholders when equity hits ≤0 with shares outstanding  *(Medium)*
+
+> **Correction (found via the runtime regression test below).** An earlier draft
+> of this finding claimed `MintShares` divides by zero and panics when equity is
+> 0. That is **wrong**: `MintShares` guards `equity.Sign() <= 0` and returns
+> `ErrNonPositiveEquity` (a clean error, no panic). The freeze is real but is a
+> revert/blocked-deposit condition, not a chain-halt panic — hence Medium, not
+> Medium–High. This correction is exactly the kind of over-claim that writing the
+> real-keeper test catches.
 
 **Where.**
 - `protocol/x/vault/keeper/deposit.go` `MintShares` (~L61–142): when
-  `existingTotalShares > 0`, `sharesToMint = quantums * totalShares / equity`
-  (`big.Int.Quo`, L95). If `equity == 0` this is a **division by zero → panic**;
-  if `equity < 0` the mint goes negative and `SetOwnerShares`/`SetTotalShares`
-  reject it (`ErrNegativeShares`). Either way deposits revert.
+  `existingTotalShares > 0` it fetches `equity = GetMegavaultEquity(ctx)` and
+  **returns `ErrNonPositiveEquity` if `equity.Sign() <= 0`** (before the
+  `quantums * totalShares / equity` division), then returns `ErrZeroSharesToMint`
+  if the quotient floors to 0. So deposits are cleanly blocked (no panic) whenever
+  equity ≤ 0.
 - `protocol/x/vault/keeper/withdraw.go` `RedeemFromMainAndSubVaults`:
   `redeemed = equity * shares / totalShares`; `WithdrawFromMegavault` reverts
   when `redeemed <= 0` (`ErrInsufficientRedeemedQuoteQuantums`).
 
 **Freeze mechanism.** If megavault equity reaches `0` (or below) while shares are
 still outstanding, **every** withdrawal floor-divides to `0` and reverts, **and**
-new deposits (which would raise equity) hit the divide-by-zero/negative path and
-revert. The vault is bricked: outstanding shares cannot be redeemed and equity
-cannot be topped up through the normal deposit path.
+new deposits (which would raise equity) are rejected with `ErrNonPositiveEquity`.
+Outstanding shares therefore cannot be redeemed, and equity cannot be topped up
+through the normal deposit path — shareholders are frozen out until equity is
+restored by some out-of-band transfer into the megavault main subaccount.
 
 **Formal evidence.**
 - TLA+ (`tla/MegavaultShares.tla`, config `..._dust.cfg`): `NoDustFreeze`
   **FAILS**, TLC exit `12` (`tla/out/mv_dust.txt`). Minimal trace:
   `Deposit(o1,1)` → 1 share, equity 1; `EquityLoss` → equity 0; now `o1` holds a
   positive, fully-unlocked share that can never be redeemed. (The model guards
-  `Deposit` when `equity = 0 ∧ totalShares > 0`, matching the Go revert/panic.)
-- Lean: `equity_zero_bricks : redeemed 0 shares total = 0`. Coq: same
-  (`equity_zero_bricks`).
-- Go runtime (`corroboration/`): `mintShares(q=1000, total=1000, equity=0)` →
-  `panicked=true`; `redeemed(equity=0, shares=5, total=1000) = 0`.
+  `Deposit` when `equity = 0 ∧ totalShares > 0`, matching the Go revert.)
+- Lean: `equity_zero_bricks : redeemed 0 shares total = 0` (redemption pays 0).
+  Coq: same (`equity_zero_bricks`).
+- Go runtime regression test `protocol/x/vault/keeper/megavault_freeze_f3_test.go`
+  (`TestF3_MegavaultEquityZero_FreezesShareholders`, PASSING) against the real
+  vault keeper: with megavault equity 0 and 1000 shares outstanding,
+  `WithdrawFromMegavault` returns `ErrInsufficientRedeemedQuoteQuantums` and
+  `MintShares` returns `ErrNonPositiveEquity` (confirming: revert + blocked
+  deposit, no panic). The standalone `corroboration/` illustrates the raw
+  `math/big` floor-division behavior but does NOT include the keeper's guard;
+  the keeper test is the authoritative behavior.
 
 **Reachability / caveats.** Requires megavault equity to actually reach `≤ 0`
 with shares still outstanding (catastrophic vault losses). Recovery is only
@@ -210,10 +226,10 @@ possible via an equity injection that does **not** go through `MintShares`
 (e.g. an operator/other transfer directly into the main vault subaccount), which
 is an operational escape hatch, not a user-available one.
 
-**Suggested mitigation.** Special-case `equity <= 0` in `MintShares` (bootstrap
-re-mint at parity instead of dividing) and provide a defined recovery/redemption
-path when equity is non-positive, so outstanding shares are never permanently
-unredeemable.
+**Suggested mitigation.** Provide a defined recovery/redemption path when equity
+is non-positive (e.g. allow a bootstrap re-mint at parity, or a governed
+socialized-loss settlement), so outstanding shares are never stranded and
+deposits can restore a bricked vault.
 
 ---
 

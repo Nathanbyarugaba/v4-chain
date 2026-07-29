@@ -31,7 +31,7 @@ operations to corroborate the vault-arithmetic findings at runtime.
 | `NegativeTncResolution` | `resolvable` | **PASS** (exit 0) | deleveraging clears neg-TNC on a two-sided market |
 | `NegativeTncResolution` | `stuck` | **FAIL** `ResolvedEventually` (exit 13) | F1b: neg-TNC structurally unresolvable → F1 reachable |
 | `MegavaultShares` | `invariants` | **PASS** (exit 0) | P6/P7: conservation + unlock-scheduling hold |
-| `MegavaultShares` | `dust` | **FAIL** `NoDustFreeze` (exit 12) | F3/F4: equity→0 brick + dust freeze |
+| `MegavaultShares` | `dust` | **FAIL** `NoDustFreeze` (exit 12) | F3/F4: equity→0 freeze + dust freeze |
 | `BridgeCompletion` | `baseline` | **PASS** (exit 0) | acknowledged bridges always complete |
 | `BridgeCompletion` | `disable` | **FAIL** `NeverDropped` (exit 12) | F5: bridged funds dropped if disabled mid-flight |
 | Lean `WithdrawalGating.lean` | — | compiles, no `sorry` | uint32/gating arithmetic + monotonic setter |
@@ -126,6 +126,12 @@ lean lean/VaultShares.lean
   (`go test ./x/delaymsg/keeper/ -run TestF5_BridgingDisabledDuringDelay_PermanentlyFreezesFunds`),
   which drives the real bridge msg server through the real `delaymsg` dispatch and
   shows the delayed completion is dropped (funds never delivered, message deleted).
+  F3 similarly has a keeper-level regression test at
+  `protocol/x/vault/keeper/megavault_freeze_f3_test.go`
+  (`go test ./x/vault/keeper/ -run TestF3_MegavaultEquityZero_FreezesShareholders`),
+  which shows that with equity 0 and shares outstanding, withdrawals revert and
+  deposits are blocked by `ErrNonPositiveEquity` (a clean error, not a panic —
+  correcting an earlier draft claim).
 
 ### Soundness / non-vacuity
 

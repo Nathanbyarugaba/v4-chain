@@ -16,7 +16,8 @@
   Findings established:
     * redeemed ≤ equity                        (no over-redemption / no minting)
     * redeemed = 0  ↔  equity*shares < total   (exact DUST-FREEZE threshold, H3)
-    * equity = 0 with shares outstanding freezes every redemption (vault brick)
+    * equity = 0 with shares outstanding freezes every redemption (deposits are
+      separately blocked by the keeper's ErrNonPositiveEquity guard — no panic)
     * withdraw/mint preserve  totalShares = Σ ownerShares  (conservation, H6)
 
   Core Lean 4 only (no Mathlib). `#print axioms` at the end shows no `sorry`.
@@ -73,9 +74,10 @@ theorem dust_freeze {equity total s : Nat}
   have hz : redeemed equity s total = 0 := (redeem_zero_iff htot).mpr hdust
   omega
 
-/-- VAULT BRICK: once `equity` reaches 0 while shares are still outstanding,
-    every redemption pays zero (and, in Go, further deposits divide-by-zero),
-    so the whole megavault is frozen. -/
+/-- VAULT FREEZE: once `equity` reaches 0 while shares are still outstanding,
+    every redemption pays zero (and, in Go, further deposits are blocked with
+    `ErrNonPositiveEquity` — a clean error, not a panic), so shareholders are
+    frozen out until equity is restored out-of-band. -/
 theorem equity_zero_bricks {shares total : Nat} :
     redeemed 0 shares total = 0 := by
   unfold redeemed; simp
