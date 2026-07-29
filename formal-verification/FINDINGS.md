@@ -30,7 +30,7 @@ The models were written after reading those functions; the Go corroboration
 | F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic` / `regression_unguarded_wrong` |
 | F3 | Megavault bricks if equity reaches 0 with shares outstanding (all withdrawals pay 0; deposits divide-by-zero) | **Medium–High** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Go `panicked=true`, Coq |
 | F4 | Dust freeze: sub-threshold holders can never withdraw a positive amount when equity < totalShares | **Low** | CONFIRMED (logic + runtime) | Lean `dust_freeze`/`redeem_zero_iff`, Go corroboration |
-| F5 | Bridged-in funds permanently lost if bridging is disabled during the acknowledge→complete delay window (delayed `MsgCompleteBridge` errors, rolls back, then is deleted with no retry) | **High** | CONFIRMED (logic) | `tla/out/bc_disable.txt` |
+| F5 | Bridged-in funds permanently lost if bridging is disabled during the acknowledge→complete delay window (delayed `MsgCompleteBridge` errors, rolls back, then is deleted with no retry) | **High** | CONFIRMED (logic **+ runtime**) | `tla/out/bc_disable.txt`; Go regression test `protocol/x/delaymsg/keeper/bridge_freeze_f5_test.go` |
 | P5 | uint32 underflow in the gating window | n/a | MITIGATED (panic guard present) — but the guard is what turns F2 into a panic | Lean `guard_makes_agree` |
 | P6 | Megavault share conservation `total = Σ owner` | n/a | POSITIVE (holds) | `tla/out/mv_invariants.txt`, Lean/Coq `conservation_*` |
 | P7 | Locked megavault shares can be permanently stranded | n/a | MITIGATED (`LockShares` always schedules an unlock) | `tla/out/mv_invariants.txt` (`LockImpliesScheduled`) |
@@ -277,6 +277,17 @@ are **permanently frozen** with no on-chain recovery path.
   **FAILS**, exit `12` (`tla/out/bc_disable.txt`). Trace:
   `Acknowledge` (delay=3) → `Tick`×3 → `Disable` → `Fire` ⇒ `phase = "dropped"`,
   `delivered = FALSE`.
+
+**Runtime evidence (real keepers).** `protocol/x/delaymsg/keeper/bridge_freeze_f5_test.go`
+(`TestF5_BridgingDisabledDuringDelay_PermanentlyFreezesFunds`, PASSING) drives the
+**real** bridge msg server through the **real** `x/delaymsg` `DispatchMessagesForBlock`:
+- Control (bridging enabled): recipient receives the 888 bridged tokens, the bridge
+  module account is debited, and the delayed message is consumed.
+- F5 (bridging disabled during the delay window before dispatch): recipient receives
+  **0**, the 888 tokens remain stuck in the bridge module account, **and the delayed
+  `MsgCompleteBridge` is deleted** (`GetMessage` returns not-found) — i.e. it is never
+  retried, so the funds are permanently frozen.
+Run: `cd protocol && go test ./x/delaymsg/keeper/ -run TestF5_BridgingDisabledDuringDelay_PermanentlyFreezesFunds -v`.
 
 **Reachability / caveats.** Requires an authority/governance `MsgUpdateSafetyParams`
 that disables bridging while at least one acknowledged bridge is still within its

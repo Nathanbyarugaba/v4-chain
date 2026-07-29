@@ -121,7 +121,11 @@ lean lean/VaultShares.lean
 - Lean proofs model Go `uint32` subtraction explicitly as `(2^32 + a - b) mod 2^32`
   and are Mathlib-free (`omega`/`decide` + core `Nat` lemmas).
 - The Go corroboration is standalone (`math/big` only) and does not depend on the
-  protocol module.
+  protocol module. In addition, F5 has a **keeper-level regression test** against
+  the real dYdX code at `protocol/x/delaymsg/keeper/bridge_freeze_f5_test.go`
+  (`go test ./x/delaymsg/keeper/ -run TestF5_BridgingDisabledDuringDelay_PermanentlyFreezesFunds`),
+  which drives the real bridge msg server through the real `delaymsg` dispatch and
+  shows the delayed completion is dropped (funds never delivered, message deleted).
 
 ### Soundness / non-vacuity
 
