@@ -41,6 +41,14 @@ echo; echo "=== WithdrawalGating: H5 unresolvable neg-TNC (expect FAIL: Eventual
 $TLC -metadir tla/out/mm_wg_h5 -config tla/WithdrawalGating_H5_unresolvable.cfg tla/WithdrawalGating.tla >tla/out/wg_h5.txt 2>&1
 echo "  exit=$?  (13 = liveness violated => permanent-freeze witness)"
 
+echo; echo "=== NegativeTncResolution: resolvable (expect PASS, exit 0) ==="
+$TLC -deadlock -metadir tla/out/mm_ntr_res -config tla/NegativeTncResolution_resolvable.cfg tla/NegativeTncResolution.tla >tla/out/ntr_resolvable.txt 2>&1
+echo "  exit=$?  (0 = deleveraging always clears the negative-TNC subaccount)"
+
+echo; echo "=== NegativeTncResolution: stuck (expect FAIL: ResolvedEventually, exit 13) ==="
+$TLC -deadlock -metadir tla/out/mm_ntr_stuck -config tla/NegativeTncResolution_stuck.cfg tla/NegativeTncResolution.tla >tla/out/ntr_stuck.txt 2>&1
+echo "  exit=$?  (13 = liveness violated => negative-TNC PERMANENTLY unresolvable => F1 reachable)"
+
 echo; echo "=== MegavaultShares: invariants (expect PASS, exit 0) ==="
 $TLC -metadir tla/out/mm_mv_inv -config tla/MegavaultShares_invariants.cfg tla/MegavaultShares.tla >tla/out/mv_invariants.txt 2>&1
 echo "  exit=$?  (0 = conservation + unlock-scheduling held)"

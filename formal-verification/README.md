@@ -28,6 +28,8 @@ operations to corroborate the vault-arithmetic findings at runtime.
 | `WithdrawalGating` | `baseline` | **PASS** (exit 0) | design is correct when causes are transient & resolvable |
 | `WithdrawalGating` | `H1_regress` | **FAIL** `SafetyNoPanic` (exit 12) | F2: height regression → panic-loop freeze |
 | `WithdrawalGating` | `H5_unresolvable` | **FAIL** `EventuallyUnblocked` (exit 13) | F1: unresolvable neg-TNC → permanent pool freeze |
+| `NegativeTncResolution` | `resolvable` | **PASS** (exit 0) | deleveraging clears neg-TNC on a two-sided market |
+| `NegativeTncResolution` | `stuck` | **FAIL** `ResolvedEventually` (exit 13) | F1b: neg-TNC structurally unresolvable → F1 reachable |
 | `MegavaultShares` | `invariants` | **PASS** (exit 0) | P6/P7: conservation + unlock-scheduling hold |
 | `MegavaultShares` | `dust` | **FAIL** `NoDustFreeze` (exit 12) | F3/F4: equity→0 brick + dust freeze |
 | Lean `WithdrawalGating.lean` | — | compiles, no `sorry` | uint32/gating arithmetic + monotonic setter |
@@ -47,6 +49,8 @@ formal-verification/
   tla/
     WithdrawalGating.tla     gating circuit-breaker state machine (F1/F2)
     WithdrawalGating_*.cfg    baseline / H1_regress / H5_unresolvable
+    NegativeTncResolution.tla deleveraging resolution liveness (F1b -> F1 reachability)
+    NegativeTncResolution_*.cfg  resolvable / stuck
     MegavaultShares.tla      megavault share accounting (F3/F4/P6/P7)
     MegavaultShares_*.cfg     invariants / dust
     out/                      saved TLC output + counterexample traces

@@ -25,7 +25,8 @@ The models were written after reading those functions; the Go corroboration
 
 | ID | Title | Severity | Status | Evidence |
 |----|-------|----------|--------|----------|
-| F1 | Unresolvable negative-TNC subaccount permanently freezes an entire collateral pool | **High** | CONFIRMED (logic); REACHABILITY gated on deleveraging progress | `tla/out/wg_h5.txt`, Lean `rearm_always_blocked` + `freeze_is_bounded` |
+| F1 | Unresolvable negative-TNC subaccount permanently freezes an entire collateral pool | **High** | CONFIRMED (logic); REACHABILITY confirmed for one-sided/illiquid markets (see F1b) | `tla/out/wg_h5.txt`, `tla/out/ntr_stuck.txt`, Lean `rearm_always_blocked` + `freeze_is_bounded` |
+| F1b | Negative-TNC subaccount is structurally UNRESOLVABLE when the opposite side lacks overlapping-bankruptcy-price counterparties (no insurance/socialized-loss fallback) | **High** | CONFIRMED (logic) — this is the reachability driver for F1 | `tla/out/ntr_stuck.txt` |
 | F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic` / `regression_unguarded_wrong` |
 | F3 | Megavault bricks if equity reaches 0 with shares outstanding (all withdrawals pay 0; deposits divide-by-zero) | **Medium–High** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Go `panicked=true`, Coq |
 | F4 | Dust freeze: sub-threshold holders can never withdraw a positive amount when equity < totalShares | **Low** | CONFIRMED (logic + runtime) | Lean `dust_freeze`/`redeem_zero_iff`, Go corroboration |
@@ -73,19 +74,54 @@ withdrawals/transfers are frozen **indefinitely**.
 - Baseline config (`CanResolve = TRUE`) passes all properties (`tla/out/wg_baseline.txt`),
   showing the design is correct **as long as deleveraging always makes progress**.
 
-**Reachability / caveats.** On a healthy chain deleveraging + insurance fund
-resolve negative-TNC accounts quickly. The freeze requires a negative-TNC
-subaccount that is *structurally* unresolvable (no counterparties on the needed
-side and depleted insurance). This is a **liveness dependency on the deleveraging
-subsystem**: any condition that can make deleveraging unable to zero-out a
-negative-TNC position (illiquid/one-sided market during extreme moves, or a bug
-that makes `GateWithdrawals...` keep re-arming without progress) turns a
-temporary safety pause into a permanent freeze of the entire pool.
+**Reachability / caveats.** The freeze requires a negative-TNC subaccount that is
+*structurally* unresolvable. Finding **F1b** below establishes that this is a
+real, reachable state (not merely an assumption): the deleveraging code has no
+guaranteed terminal resolution for a negative-TNC account, so a one-sided /
+illiquid market during an extreme move suffices. On a healthy, two-sided,
+liquid market deleveraging clears negative-TNC accounts quickly and the breaker
+lifts (baseline / `resolvable` configs pass).
 
 **Suggested mitigation.** Bound the total re-arm duration independently of
 per-block re-arming (a hard cap on cumulative gating), and/or guarantee a
 terminal resolution path (final settlement / socialized loss) that always clears
 a stuck negative-TNC subaccount so the breaker provably lifts.
+
+---
+
+## F1b — Negative-TNC subaccount can be structurally unresolvable  *(High — reachability driver for F1)*
+
+**Where.** `protocol/x/clob/keeper/deleveraging.go`:
+- `CanDeleverageSubaccount` (~L128-165): a **negative-TNC** account is deleveraged
+  **at bankruptcy price only**; the oracle-price / final-settlement path
+  (`shouldDeleverageAtOraclePrice`) is gated on **non-negative** TNC, so it
+  cannot help a negative-TNC account.
+- `OffsetSubaccountPerpetualPosition` (~L255-405): offsets only against
+  opposite-side subaccounts whose **bankruptcy prices overlap**; it counts and
+  **skips** non-overlapping ones (`numSubaccountsWithNonOverlappingBankruptcyPrices`,
+  explicit `TODO(CLOB-75): Support deleveraging subaccounts with non overlapping
+  bankruptcy prices`), and returns immediately with the full position un-offset
+  when there are `0` opposite-side subaccounts. **No insurance-fund /
+  socialized-loss fallback** exists on this path.
+
+**Consequence.** If the opposite side lacks enough offsetting quantums at
+overlapping bankruptcy prices, the bankrupt position is never fully closed, so
+the subaccount stays negative-TNC indefinitely — which (via F1's per-block
+re-arm) permanently freezes the whole collateral pool's withdrawals.
+
+**Formal evidence.** `tla/NegativeTncResolution.tla`:
+- Config `resolvable` (`OffsetCapacity ≥ Position`): `ResolvedEventually ==
+  <>(remaining = 0)` HOLDS, exit `0` (`tla/out/ntr_resolvable.txt`).
+- Config `stuck` (`Position = 3`, `OffsetCapacity = 1`, no fallback):
+  `ResolvedEventually` **FAILS**, exit `13` (`tla/out/ntr_stuck.txt`). Trace:
+  one `Deleverage` step (`remaining 3→2`, `capacityLeft 1→0`) then an infinite
+  stutter at `remaining = 2` — the position is permanently unresolvable.
+
+**Suggested mitigation.** Provide a guaranteed terminal resolution for
+negative-TNC accounts that cannot be offset (e.g. allow oracle-price / final
+settlement to also close negative-TNC positions with an insurance-fund draw or
+explicit socialized loss), so `remaining` provably reaches 0 and the withdrawal
+breaker lifts.
 
 ---
 
