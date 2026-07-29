@@ -30,6 +30,7 @@ The models were written after reading those functions; the Go corroboration
 | F2 | Block-height regression makes every withdrawal/transfer panic (chain-halt freeze) | **Medium** | CONFIRMED (logic); REACHABILITY gated on height regression | `tla/out/wg_h1.txt`, Lean `regression_causes_panic` / `regression_unguarded_wrong` |
 | F3 | Megavault bricks if equity reaches 0 with shares outstanding (all withdrawals pay 0; deposits divide-by-zero) | **Medium–High** | CONFIRMED (logic + runtime) | `tla/out/mv_dust.txt`, Lean `equity_zero_bricks`, Go `panicked=true`, Coq |
 | F4 | Dust freeze: sub-threshold holders can never withdraw a positive amount when equity < totalShares | **Low** | CONFIRMED (logic + runtime) | Lean `dust_freeze`/`redeem_zero_iff`, Go corroboration |
+| F5 | Bridged-in funds permanently lost if bridging is disabled during the acknowledge→complete delay window (delayed `MsgCompleteBridge` errors, rolls back, then is deleted with no retry) | **High** | CONFIRMED (logic) | `tla/out/bc_disable.txt` |
 | P5 | uint32 underflow in the gating window | n/a | MITIGATED (panic guard present) — but the guard is what turns F2 into a panic | Lean `guard_makes_agree` |
 | P6 | Megavault share conservation `total = Σ owner` | n/a | POSITIVE (holds) | `tla/out/mv_invariants.txt`, Lean/Coq `conservation_*` |
 | P7 | Locked megavault shares can be permanently stranded | n/a | MITIGATED (`LockShares` always schedules an unlock) | `tla/out/mv_invariants.txt` (`LockImpliesScheduled`) |
@@ -240,6 +241,54 @@ Severity **Low** (griefing/dust), but formally those funds are unrecoverable.
 **Suggested mitigation.** Allow a full-exit redemption that rounds in the
 holder's favor for a 100% withdrawal, or a minimum-viable redemption path, so a
 holder can always exit their entire (however small) position.
+
+---
+
+## F5 — Bridged-in funds permanently lost if bridging is disabled mid-flight  *(High)*
+
+**Where.**
+- `protocol/x/bridge/keeper/acknowledge_bridges.go` `AcknowledgeBridges`: for each
+  recognized bridge event it schedules a delayed `MsgCompleteBridge`
+  `safetyParams.DelayBlocks` in the future (via `x/delaymsg`) **and** advances
+  `AcknowledgedEventInfo.NextId` past the event — so the event is **never
+  re-acknowledged**.
+- `protocol/x/bridge/keeper/complete_bridge.go` `CompleteBridge`: returns
+  `ErrBridgingDisabled` when `safetyParams.IsDisabled` (no coins transferred).
+- `protocol/x/delaymsg/keeper/dispatch.go` `DispatchMessagesForBlock`: runs each
+  scheduled message in a **cached context** (`abci.RunCached` — state is rolled
+  back if the handler errors, and the error is only **logged**), then in a final
+  loop **unconditionally `DeleteMessage`s every** message scheduled for that block
+  — no retry, no re-queue.
+
+**Freeze mechanism.** If bridging is disabled (via `MsgUpdateSafetyParams`) at any
+point during the `DelayBlocks` window between a bridge's acknowledgement and its
+scheduled completion, the delayed `MsgCompleteBridge` fires while disabled,
+`CompleteBridge` returns `ErrBridgingDisabled`, the cached state is discarded (the
+user is **not** paid), and the delayed message is then **deleted**. Because the
+event was already acknowledged (`NextId` advanced past it), it is never
+re-scheduled. The user's funds — already locked/burned on the Ethereum side —
+are **permanently frozen** with no on-chain recovery path.
+
+**Formal evidence.** `tla/BridgeCompletion.tla`:
+- Config `baseline` (bridging never disabled): `NeverDropped` and
+  `EventuallyDelivered` both HOLD, exit `0` (`tla/out/bc_baseline.txt`).
+- Config `disable` (bridging can be disabled in the window): `NeverDropped`
+  **FAILS**, exit `12` (`tla/out/bc_disable.txt`). Trace:
+  `Acknowledge` (delay=3) → `Tick`×3 → `Disable` → `Fire` ⇒ `phase = "dropped"`,
+  `delivered = FALSE`.
+
+**Reachability / caveats.** Requires an authority/governance `MsgUpdateSafetyParams`
+that disables bridging while at least one acknowledged bridge is still within its
+delay window — a realistic security-pause scenario (bridging is often paused
+precisely when something looks wrong, and in-flight deposits already exist).
+Re-enabling bridging later does **not** recover the dropped completions.
+
+**Suggested mitigation.** Do not drop delayed `MsgCompleteBridge`s on
+`ErrBridgingDisabled`: either (a) make `CompleteBridge` succeed regardless of the
+disable flag (the disable flag should gate *acknowledgement*, not the settlement
+of already-acknowledged events), or (b) re-queue/park failed completions so they
+execute once bridging is re-enabled, or (c) have `delaymsg` re-schedule a message
+whose handler returned an error instead of deleting it.
 
 ---
 

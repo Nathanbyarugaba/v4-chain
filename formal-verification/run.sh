@@ -57,6 +57,14 @@ echo; echo "=== MegavaultShares: dust/brick (expect FAIL: NoDustFreeze, exit 12)
 $TLC -metadir tla/out/mm_mv_dust -config tla/MegavaultShares_dust.cfg tla/MegavaultShares.tla >tla/out/mv_dust.txt 2>&1
 echo "  exit=$?  (12 = invariant violated => dust/brick freeze witness)"
 
+echo; echo "=== BridgeCompletion: baseline (expect PASS, exit 0) ==="
+$TLC -deadlock -metadir tla/out/mm_bc_base -config tla/BridgeCompletion_baseline.cfg tla/BridgeCompletion.tla >tla/out/bc_baseline.txt 2>&1
+echo "  exit=$?  (0 = acknowledged bridges are always completed)"
+
+echo; echo "=== BridgeCompletion: disable-in-window (expect FAIL: NeverDropped, exit 12) ==="
+$TLC -deadlock -metadir tla/out/mm_bc_dis -config tla/BridgeCompletion_disable.cfg tla/BridgeCompletion.tla >tla/out/bc_disable.txt 2>&1
+echo "  exit=$?  (12 = invariant violated => bridged funds permanently dropped)"
+
 rm -rf tla/out/mm_* tla/states 2>/dev/null
 
 echo; echo "################## Lean 4 ##################"

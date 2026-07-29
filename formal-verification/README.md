@@ -32,6 +32,8 @@ operations to corroborate the vault-arithmetic findings at runtime.
 | `NegativeTncResolution` | `stuck` | **FAIL** `ResolvedEventually` (exit 13) | F1b: neg-TNC structurally unresolvable → F1 reachable |
 | `MegavaultShares` | `invariants` | **PASS** (exit 0) | P6/P7: conservation + unlock-scheduling hold |
 | `MegavaultShares` | `dust` | **FAIL** `NoDustFreeze` (exit 12) | F3/F4: equity→0 brick + dust freeze |
+| `BridgeCompletion` | `baseline` | **PASS** (exit 0) | acknowledged bridges always complete |
+| `BridgeCompletion` | `disable` | **FAIL** `NeverDropped` (exit 12) | F5: bridged funds dropped if disabled mid-flight |
 | Lean `WithdrawalGating.lean` | — | compiles, no `sorry` | uint32/gating arithmetic + monotonic setter |
 | Lean `VaultShares.lean` | — | compiles, no `sorry` | redemption bounds, dust threshold, conservation |
 | Coq `Redemption.v` | — | compiles (`Qed`) | independent cross-check of redemption/conservation |
@@ -53,6 +55,8 @@ formal-verification/
     NegativeTncResolution_*.cfg  resolvable / stuck
     MegavaultShares.tla      megavault share accounting (F3/F4/P6/P7)
     MegavaultShares_*.cfg     invariants / dust
+    BridgeCompletion.tla     x/bridge completion vs delaymsg drop (F5)
+    BridgeCompletion_*.cfg    baseline / disable
     out/                      saved TLC output + counterexample traces
   lean/
     WithdrawalGating.lean    uint32 no-underflow, bounded-freeze, monotonic setter
